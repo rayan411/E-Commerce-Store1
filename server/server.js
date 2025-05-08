@@ -1,6 +1,8 @@
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require("express");
 const cors = require("cors");
 const bodyparser = require("body-parser");
+console.log('🔑 Loaded Stripe key:', process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 app.use(express.static("public"));
@@ -8,10 +10,11 @@ app.use(bodyparser.urlencoded({ extended: false }));
 app.use(bodyparser.json());
 app.use(cors({ origin: true, credentials: true }));
 
-const stripe = require("stripe")("your private token");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 app.post("/checkout", async (req, res, next) => {
     try {
+        
         const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         shipping_address_collection: {
@@ -78,6 +81,7 @@ app.post("/checkout", async (req, res, next) => {
         });
 
         res.status(200).json(session);
+        res.json({ url: session.url });// pay link
     } catch (error) {
         next(error);
     }

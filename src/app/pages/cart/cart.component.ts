@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Cart, CartItem } from 'src/app/models/cart.model';
 import { CartService } from 'src/app/services/cart.service';
-import { loadStripe } from '@stripe/stripe-js';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -20,12 +19,15 @@ export class CartComponent implements OnInit, OnDestroy {
     'action',
   ];
   dataSource: CartItem[] = [];
-  cartSubscription: Subscription | undefined;
+  private cartSubscription?: Subscription;
 
-  constructor(private cartService: CartService, private http: HttpClient) {}
+  constructor(
+    private cartService: CartService,
+    private http: HttpClient
+  ) {}
 
   ngOnInit(): void {
-    this.cartSubscription = this.cartService.cart.subscribe((_cart: Cart) => {
+    this.cartSubscription = this.cartService.cart.subscribe((_cart) => {
       this.cart = _cart;
       this.dataSource = _cart.items;
     });
@@ -53,20 +55,25 @@ export class CartComponent implements OnInit, OnDestroy {
 
   onCheckout(): void {
     this.http
-      .post('http://localhost:4242/checkout', {
+      .post<{ url: string }>('http://localhost:4242/checkout', {
         items: this.cart.items,
       })
-      .subscribe(async (res: any) => {
-        let stripe = await loadStripe('your token');
-        stripe?.redirectToCheckout({
-          sessionId: res.id,
-        });
-      });
+      .subscribe(
+        (res) => {
+          if (res.url) {
+            // توجه مباشرةً إلى صفحة الدفع المستضافة من Stripe
+            window.location.href = res.url;
+          } else {
+            console.error('❌ Checkout URL not returned');
+          }
+        },
+        (err) => {
+          console.error('❌ Checkout request failed', err);
+        }
+      );
   }
 
-  ngOnDestroy() {
-    if (this.cartSubscription) {
-      this.cartSubscription.unsubscribe();
-    }
+  ngOnDestroy(): void {
+    this.cartSubscription?.unsubscribe();
   }
 }
